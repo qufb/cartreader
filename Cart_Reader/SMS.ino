@@ -1,7 +1,6 @@
 //***********************************************************
 // SEGA MASTER SYSTEM / MARK III / GAME GEAR / SG-1000 MODULE
 //***********************************************************
-#ifdef enable_SMS
 
 //******************************************
 //   Menus
@@ -19,7 +18,7 @@ static const char* const SMSAdapterMenu[] PROGMEM = { SMSAdapterItem1, SMSAdapte
 static const char SMSOperationItem1[] PROGMEM = "Read Rom";
 static const char SMSOperationItem2[] PROGMEM = "Read from SRAM";
 static const char SMSOperationItem3[] PROGMEM = "Write to SRAM";
-static const char* const SMSOperationMenu[] PROGMEM = { SMSOperationItem1, SMSOperationItem2, SMSOperationItem3, string_reset2 };
+static const char* const SMSOperationMenu[] PROGMEM = { SMSOperationItem1, SMSOperationItem2, SMSOperationItem3 };
 
 // Rom sizes menu
 static const char SMSRomSizeItem1[] PROGMEM = "8 KB";
@@ -50,47 +49,8 @@ static bool adapter_retron = false;   // Retron 3in1 adapter (SMS-to-MD or GG-to
 //  Main menu with systems/adapters setups to choose from
 //*********************************************************
 void smsMenu() {
-  unsigned char SMSSetup;
-  convertPgm(SMSAdapterMenu, 6);
-  SMSSetup = question_box(F("Select your setup"), menuOptions, 6, 0);
-
-  switch (SMSSetup) {
-    case 0:
-      // SMS or MarkIII with raphnet adapter
-      system_sms = true;
-      adapter_raphnet = true;
-      break;
-
-    case 1:
-      // SMS with Retrode adapter
-      system_sms = true;
-      adapter_retrode = true;
-      break;
-
-    case 2:
-      // SMS with Retron 3in1 adapter
-      system_sms = true;
-      adapter_retron = true;
-      break;
-
-    case 3:
-      // GameGear with Retrode adapter
-      system_gg = true;
-      adapter_retrode = true;
-      break;
-
-    case 4:
-      // GameGear with Retron 3in1 adapter
-      system_gg = true;
-      adapter_retron = true;
-      break;
-
-    case 5:
-      // SG-1000 with raphnet adapter
-      system_sg1000 = true;
-      adapter_raphnet = true;
-      break;
-  }
+  system_gg = true;
+  adapter_retron = true;
   for (;;) smsOperations();
 }
 
@@ -98,45 +58,26 @@ void smsMenu() {
 //  Create custom menu depending on selected setup
 //****************************************************
 void smsOperations() {
+  setup_SMS();
+  readROM_SMS();
+
+  /*
   unsigned char SMSOperation = '3';
-  convertPgm(SMSOperationMenu, 4);
-
-  if (system_sms) {
-    if (adapter_raphnet) {
-      SMSOperation = question_box(F("SMS/MarkIII raphnet"), menuOptions, 4, 0);
-    } else if (adapter_retrode) {
-      SMSOperation = question_box(F("SMS Retrode"), menuOptions, 4, 0);
-    } else if (adapter_retron) {
-      SMSOperation = question_box(F("SMS Retron 3in1"), menuOptions, 4, 0);
-    }
-  } else if (system_gg) {
-    if (adapter_retrode) {
-      SMSOperation = question_box(F("GameGear Retrode"), menuOptions, 4, 0);
-    } else if (adapter_retron) {
-      SMSOperation = question_box(F("GameGear Retron 3in1"), menuOptions, 4, 0);
-    }
-  } else if (system_sg1000) {
-    SMSOperation = question_box(F("SG-1000 raphnet"), menuOptions, 1, 0);
-  }
-
   switch (SMSOperation) {
     case 0:
       // Read ROM
-      mode = mode_SMS;
       setup_SMS();
       readROM_SMS();
       break;
 
     case 1:
       // Read SRAM
-      mode = mode_SMS;
       setup_SMS();
       readSRAM_SMS();
       break;
 
     case 2:
       // Write SRAM
-      mode = mode_SMS;
       setup_SMS();
       writeSRAM_SMS();
       break;
@@ -146,6 +87,7 @@ void smsOperations() {
       resetArduino();
       break;
   }
+  */
 
   display_Update();
   wait();
@@ -155,8 +97,10 @@ void smsOperations() {
 //   Setup I/O
 //********************************
 void setup_SMS() {
+  println_Msg(F("setup_SMS"));
+
   // Request 5V
-  setVoltage(VOLTS_SET_5V);
+  //setVoltage(VOLTS_SET_5V);
 
   // Set Address Pins to Output
   //A0-A7
@@ -220,6 +164,11 @@ void setup_SMS() {
 //  Low level functions
 //*****************************************
 void writeByte_SMS(word myAddress, byte myData) {
+  //print_Msg(F("writeByte_SMS "));
+  //print_Msg_PaddedHex16(myAddress);
+  //print_Msg_PaddedHexByte(myData);
+  //println_Msg(F(""));
+
   if (adapter_retrode && system_gg) {
     // Set Data Pins (D8-D15) to Output
     DDRA = 0xFF;
@@ -346,6 +295,11 @@ byte readByte_SMS(word myAddress) {
           "nop\n\t"
           "nop\n\t");
 
+  //print_Msg(F("readByte_SMS "));
+  //print_Msg_PaddedHex16(myAddress);
+  //print_Msg_PaddedHexByte(tempByte);
+  //println_Msg(F(""));
+
   return tempByte;
 }
 
@@ -357,6 +311,8 @@ byte readNibble(byte data, byte number) {
 //  Cartridges functions
 //*****************************************
 void getCartInfo_SMS() {
+  println_Msg(F("getCartInfo_SMS"));
+
   // Get rom size
   switch (readNibble(readByte_SMS(0x7FFF), 0)) {
     // Adding UL gets rid of integer overflow compiler warning
@@ -394,9 +350,11 @@ void getCartInfo_SMS() {
     default:
       cartSize = 48 * 1024UL;
       // LED Error
-      setColor_RGB(0, 0, 255);
+      //setColor_RGB(0, 0, 255);
       break;
   }
+
+  println_Msg(cartSize);
 
   // Get rom name (expecting "TMR SEGA" string)
   for (byte i = 0; i < 8; i++) {
@@ -415,13 +373,13 @@ void getCartInfo_SMS() {
     }
     romName2[8] = '\0';
 
-    // print_Msg(F("Name2: "));
-    // println_Msg(romName2);
-    // print_Msg(F("from bank "));
-    // print_Msg(bank);
-    // print_Msg(F(" offset "));
-    // print_Msg_PaddedHex32(mirror_offset + 0x7FF0);
-    // println_Msg(F(""));
+    print_Msg(F("Name2: "));
+    println_Msg(romName2);
+    print_Msg(F("from bank "));
+    print_Msg(bank);
+    print_Msg(F(" offset "));
+    print_Msg_PaddedHex32(mirror_offset + 0x7FF0);
+    println_Msg(F(""));
 
     if (strcmp(romName2, romName) == 0) {
       break;
@@ -454,56 +412,29 @@ void getCartInfo_SMS() {
   // If "TMR SEGA" header is not found
   if (strcmp(romName, "TMR SEGA") != 0) {
     // Set rom size manually
-    unsigned char SMSRomSize;
+    unsigned char SMSRomSize = 4;
 
-    if (system_sg1000) {
-      // Rom sizes for SG-1000
-      convertPgm(SG1RomSizeMenu, 4);
-      SMSRomSize = question_box(F("Select ROM size"), menuOptions, 4, 0);
-      switch (SMSRomSize) {
-        case 0:
-          cartSize = 8 * 1024UL;  // 8KB
-          break;
-        case 1:
-          cartSize = 16 * 1024UL;  // 16KB
-          break;
-        case 2:
-          cartSize = 24 * 1024UL;  // 24KB
-          break;
-        case 3:
-          cartSize = 32 * 1024UL;  // 32KB
-          break;
-          //case 4:
-          //  cartSize = 40 * 1024UL; // 40KB
-          //  break;
-          //case 5:
-          //  cartSize = 48 * 1024UL; // 48KB
-          //  break;
-      }
-    } else {
-      // Rom sizes for SMS and GG
-      convertPgm(SMSRomSizeMenu, 6);
-      SMSRomSize = question_box(F("Select ROM size"), menuOptions, 6, 0);
-      switch (SMSRomSize) {
-        case 0:
-          cartSize = 32 * 1024UL;  // 32KB
-          break;
-        case 1:
-          cartSize = 64 * 1024UL;  // 64KB
-          break;
-        case 2:
-          cartSize = 128 * 1024UL;  // 128KB
-          break;
-        case 3:
-          cartSize = 256 * 1024UL;  // 256KB
-          break;
-        case 4:
-          cartSize = 512 * 1024UL;  // 512KB
-          break;
-        case 5:
-          cartSize = 1024 * 1024UL;  // 1MB
-          break;
-      }
+    // Rom sizes for SMS and GG
+    //convertPgm(SMSRomSizeMenu, 6);
+    switch (SMSRomSize) {
+      case 0:
+        cartSize = 32 * 1024UL;  // 32KB
+        break;
+      case 1:
+        cartSize = 64 * 1024UL;  // 64KB
+        break;
+      case 2:
+        cartSize = 128 * 1024UL;  // 128KB
+        break;
+      case 3:
+        cartSize = 256 * 1024UL;  // 256KB
+        break;
+      case 4:
+        cartSize = 512 * 1024UL;  // 512KB
+        break;
+      case 5:
+        cartSize = 1024 * 1024UL;  // 1MB
+        break;
     }
 
     // Display cart info
@@ -545,14 +476,17 @@ void getCartInfo_SMS() {
 #endif
 
   // Turn off LED
-  setColor_RGB(0, 0, 0);
+  //setColor_RGB(0, 0, 0);
 }
 
 //******************************************
 //  Read ROM and save it to the SD card
 //******************************************
 void readROM_SMS() {
+  println_Msg(F("readROM_SMS"));
+
   // Get name, add extension depending on the system and convert to char array for sd lib
+  /*
   EEPROM_readAnything(0, foldern);
   strcpy(fileName, romName);
   if (system_sms) {
@@ -585,6 +519,7 @@ void readROM_SMS() {
   if (!myFile.open(fileName, O_RDWR | O_CREAT)) {
     print_FatalError(sd_error_STR);
   }
+  */
 
   // Set default bank size to 16KB
   word bankSize = 16 * 1024UL;
@@ -595,19 +530,27 @@ void readROM_SMS() {
   }
 
   // Initialize progress bar
-  uint32_t processedProgressBar = 0;
-  uint32_t totalProgressBar = (uint32_t)(cartSize);
-  draw_progressbar(0, totalProgressBar);
+  //uint32_t processedProgressBar = 0;
+  //uint32_t totalProgressBar = (uint32_t)(cartSize);
+  //draw_progressbar(0, totalProgressBar);
 
   for (byte currBank = 0x0; currBank < (cartSize / bankSize); currBank++) {
+    print_Msg(F("bank "));
+    print_Msg_PaddedHex16(currBank);
+    println_Msg(F(""));
+    if (currBank % 4 == 0) {
+      wait();
+    }
+
     // Write current 16KB bank to slot 2 register 0xFFFF
     if (!system_sg1000) {
       writeByte_SMS(0xFFFF, currBank);
     }
 
     // Blink led
-    blinkLED();
+    //blinkLED();
 
+    int addr_i = 0;
     // Read 16KB from slot 2 which starts at 0x8000
     for (word currBuffer = 0; currBuffer < bankSize; currBuffer += 512) {
       // Fill SD buffer
@@ -616,27 +559,28 @@ void readROM_SMS() {
       }
       // hexdump for debugging:
       // if (currBank == 0 && currBuffer == 0) {
-      //   for (word xi = 0; xi < 0x100; xi++) {
-      //     if (xi%16==0) {
-      //       print_Msg_PaddedHex16(xi);
-      //       print_Msg(F(" "));
-      //     }
-      //     print_Msg_PaddedHexByte(sdBuffer[xi]);
-      //     if (xi>0&&((xi+1)%16)==0) {
-      //       println_Msg(F(""));
-      //     } else {
-      //       print_Msg(F(" "));
-      //     }
-      //   }
+            for (word xi = 0; xi < 512; xi++) {
+              if (xi%16==0) {
+                unsigned long addr = (unsigned long) (xi + currBuffer) + (0x4000UL * currBank);
+                print_Msg_PaddedHex32(addr);
+                print_Msg(F(" "));
+              }
+              print_Msg_PaddedHexByte(sdBuffer[xi]);
+              if (xi>0&&((xi+1)%16)==0) {
+                println_Msg(F(""));
+              } else {
+                print_Msg(F(" "));
+              }
+           }
       // }
-      myFile.write(sdBuffer, 512);
+      //myFile.write(sdBuffer, 512);
     }
 
     // Update progress bar
-    processedProgressBar += bankSize;
-    draw_progressbar(processedProgressBar, totalProgressBar);
+    //processedProgressBar += bankSize;
+    //draw_progressbar(processedProgressBar, totalProgressBar);
   }
-
+/*
   // Close file
   myFile.close();
 
@@ -654,12 +598,14 @@ void readROM_SMS() {
 #endif
 
   print_STR(press_button_STR, 1);
+  */
 }
 
 //******************************************
 //  Read SRAM and save to the SD card
 ///*****************************************
 void readSRAM_SMS() {
+  /*
   // Get name, add extension and convert to char array for sd lib
   strcpy(fileName, romName);
   strcat(fileName, ".sav");
@@ -713,12 +659,14 @@ void readSRAM_SMS() {
   } else {
     print_FatalError(sd_error_STR);
   }
+  */
 }
 
 //**********************************************
 //  Read file from SD card and write it to SRAM
 //**********************************************
 void writeSRAM_SMS() {
+  /*
   if (false) {
     print_Error(F("DISABLED"));
   } else {
@@ -764,8 +712,8 @@ void writeSRAM_SMS() {
   }
   sd.chdir();          // root
   filePath[0] = '\0';  // Reset filePath
+  */
 }
-#endif
 
 //******************************************
 // End of File
